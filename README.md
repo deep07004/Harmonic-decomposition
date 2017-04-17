@@ -1,2 +1,1 @@
-SMDPE
-=====
+Harmoic decomposition of receiver function
