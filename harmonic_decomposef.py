@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 Created on Wed Sep 14 07:24:26 2016
-
-@author: dipankar
+@author: dipankar saikia # deep07004@gmail.com
 """
 import sys
 import numpy as np
