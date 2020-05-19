@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Created on Wed Sep 14 07:24:26 2016
-@author: dipankar saikia # deep07004@gmail.com
+
+@author: dipankar (deep07004@gmail.com)
 """
 import sys
 import numpy as np
@@ -12,37 +13,48 @@ from scipy.interpolate import interp1d
 
 
 def plot_it (trinfo,dataR,dataT,twb,twe):
-    t_end=25
+    t_end=twe
     zoom=100
     t_start=trinfo[0,0]
     ntwb=np.int((twb+np.abs(t_start))/trinfo[0,1])
     ntwe=np.int((twe+np.abs(t_start))/trinfo[0,1])
     nn=int(np.ceil((t_end-t_start)/trinfo[0,1]))
-    tt_axis=np.linspace(t_start,t_end,nn)
-    fig1 = plt.figure(figsize=(12,12))
-    plt.subplot(1,2,1)
-    plt.title('Radial')
-    plt.ylim([-10,399])
+    time=np.linspace(t_start,t_end,nn)
+    fig = plt.figure(figsize=(4.5,6.0))
+    plt.clf()
+    ax1 = fig.add_axes([0.075, 0.075, 0.375, 0.875])
+    ax2 = fig.add_axes([0.55, 0.075, 0.375, 0.875])
+    ax1.set_title('Radial')
+    ax1.set_xlabel('Time (s)')
+    ax1.set_ylabel('Back-azimuth (deg)')
+    ax1.set_xlim(twb, twe)
+    ax1.set_ylim(-5, 370)
+    ax1.set_yticks(())
+    ax2.set_title('Transverse')
+    ax2.set_xlabel('Time (s)')
+    #ax2.set_ylabel('Back-azimuth (deg)')
+    ax2.set_xlim(twb, twe)
+    ax2.set_ylim(-5, 370)
     for i in range(0,nrf):
-        plt.plot(tt_axis,dataR[0:nn,i]*zoom+trinfo[i,3],'k-')
-        a=np.argmax(dataR[ntwb:ntwe,i])*trinfo[0,1]+twb
-        b=np.max(dataR[ntwb:ntwe,i])*zoom+trinfo[i,3]
-        plt.plot(a,b,'rx')
-    ax=fig1.gca()
-    ax.add_patch(patches.Rectangle((twb, -50), (twe-twb), 500,alpha=0.20))
-    plt.subplot(1,2,2)
-    plt.title('Transverse')
-    plt.ylim([-10,399])
-    for i in range(0,nrf):
-        plt.plot(tt_axis,dataT[0:nn,i]*zoom+trinfo[i,3],'k-')
-    ax=fig1.gca()
-    ax.add_patch(patches.Rectangle((twb, -50), (twe-twb), 500,alpha=0.20))
-  #  plt.show()
+        y = trinfo[i,3]
+        data = dataR[0:nn,i]
+        maxval = 60
+        ax1.plot(time,y+data*maxval,'k-',linewidth=0.5)
+        ax1.fill_between(time, y, y+data*maxval, where=data+1e-6 <= 0.,facecolor='dodgerblue', linewidth=0)
+        ax1.fill_between(time, y, y+data*maxval, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+        data = dataT[0:nn,i]
+        ax2.plot(time,y+data*maxval,'k-',linewidth=0.5)
+        ax2.fill_between(time, y, y+data*maxval, where=data+1e-6 <= 0.,facecolor='dodgerblue', linewidth=0)
+        ax2.fill_between(time, y, y+data*maxval, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+    fig.savefig('baz-section.pdf',dpi=300)
 
-maxamp=0.05
+# plotting limits
+xlimit=[-2,10]  #  Time
+bootstrap=200
+zoom=5
 
-LCS=True # If data is in left handed R-T-Z system where T -> +90 from R
-# e.g Park and Levin fomulation is in right jhanded R-T-Z system
+LCS=False # If data is in left handed R-T-Z system where T -> +90 from R
+# e.g Park and Levin fomulation is in right handed R-T-Z system
 # Raysum is in left handed coordinate system 
 
 if LCS:
@@ -80,21 +92,20 @@ for i in range(0,len(fpin)):
         k=k+1
 
 nrf=j+1
-ts=(np.argmax(dataR[:,0])*trinfo[0,1])+trinfo[0,0]-3.0
 print (np.argmax(dataR[:,0]))
-plot_it (trinfo,dataR,dataT,ts,ts+6)
+plot_it (trinfo,dataR,dataT,xlimit[0],xlimit[1])
 
 
-tt=np.linspace(0,trinfo[0,1]*trinfo[0,2],trinfo[0,2])+trinfo[0,0]
+tt=np.linspace(0,trinfo[0,1]*trinfo[0,2],np.int(trinfo[0,2]))+trinfo[0,0]
 
 # convert the data to frequency domain
 
 dataRF_in = np.fft.rfft(dataR,axis=0)
 dataTF_in = np.fft.rfft(dataT,axis=0)
 oldnf=len(dataRF_in[:,0])
-print ('Frequency no' , oldnf)
 oldff=np.linspace(0,oldnf,oldnf)
-nf=npts
+nf = npts*2
+print ('Frequency no' , oldnf, nf)
 ff=np.linspace(0,oldnf,nf)
 dataRF = np.zeros([nf,nrf],dtype=complex)
 dataTF = np.zeros([nf,nrf],dtype=complex)
@@ -109,7 +120,8 @@ for i in range(0,nrf):
     func2 = interp1d(oldff,dataTF_in[:,i].imag, kind='slinear')
     dataRF[:,i].imag = func1(ff)
     dataTF[:,i].imag = func2(ff)
-print ('Frequency no' , nf)
+
+#print ('Frequency no' , nf)
 
 # Modelled radial component
 op=np.zeros([2*nrf,10])
@@ -124,7 +136,6 @@ Hc=np.array(np.zeros(nf),dtype=complex)
 Ic=np.array(np.zeros(nf),dtype=complex)
 Jc=np.array(np.zeros(nf),dtype=complex)
 data=np.zeros(2*nrf)
-bootstrap=100
 A=np.zeros([npts,bootstrap])
 B=np.zeros([npts,bootstrap])
 C=np.zeros([npts,bootstrap])
@@ -136,7 +147,7 @@ H=np.zeros([npts,bootstrap])
 I=np.zeros([npts,bootstrap])
 J=np.zeros([npts,bootstrap])
 for bn in range(0,bootstrap):
-    print('Bootstrap no.: ',bn)
+    print('Bootstrap no.: ',bn+1)
     listbn=np.random.randint(0,nrf,nrf)
     i=0    
     for k in listbn:
@@ -157,7 +168,7 @@ for bn in range(0,bootstrap):
         op[j,2] = -1.0*np.cos(theta)
         op[j,3] = np.sin(2.0*theta)
         op[j,4] = -1.0*np.cos(2.0*theta)
-        op[j,5] = 3.0
+        op[j,5] = 0.3
         op[j,6] = -1.0*np.sin(theta)
         op[j,7] = np.cos(theta)
         op[j,8] = -1.0*np.sin(2.0*theta)
@@ -174,12 +185,12 @@ for bn in range(0,bootstrap):
         data[nrf:2*nrf]=dataTF.imag[i,listbn]
         [Ac.imag[i],Bc.imag[i],Cc.imag[i],Dc.imag[i],Ec.imag[i],Fc.imag[i],Gc.imag[i],Hc.imag[i],Ic.imag[i],Jc.imag[i]] = np.matmul(invop,data)
     # convert to time domain
-    A[:,bn]=np.fft.irfft(Ac)[0:npts]
+    A[:,bn]=np.fft.irfft(Ac*3.0)[0:npts]
     B[:,bn]=np.fft.irfft(Bc)[0:npts]
     C[:,bn]=np.fft.irfft(Cc)[0:npts]
     D[:,bn]=np.fft.irfft(Dc)[0:npts]
     E[:,bn]=np.fft.irfft(Ec)[0:npts]
-    F[:,bn]=np.fft.irfft(Fc)[0:npts]
+    F[:,bn]=np.fft.irfft(Fc*0.3)[0:npts]
     G[:,bn]=np.fft.irfft(Gc)[0:npts]
     H[:,bn]=np.fft.irfft(Hc)[0:npts]
     I[:,bn]=np.fft.irfft(Ic)[0:npts]
@@ -191,113 +202,144 @@ AF,BF,CF,DF,EF,FF,GF,HF,IF,JF = np.zeros([npts,3]),np.zeros([npts,3]),np.zeros([
                                 np.zeros([npts,3])
 
 AF[:,1] = np.mean(A,axis=1)
-AF[:,0] = AF[:,1]-np.std(A,axis=1)
-AF[:,2] = AF[:,1]+np.std(A,axis=1)
+AF[:,0] = AF[:,1]-1.98*np.std(A,axis=1)
+AF[:,2] = AF[:,1]+1.98*np.std(A,axis=1)
 BF[:,1] = np.mean(B,axis=1)
-BF[:,0] = BF[:,1]-np.std(B,axis=1)
-BF[:,2] = BF[:,1]+np.std(B,axis=1)
+BF[:,0] = BF[:,1]-1.98*np.std(B,axis=1)
+BF[:,2] = BF[:,1]+1.98*np.std(B,axis=1)
 CF[:,1] = np.mean(C,axis=1)
-CF[:,0] = CF[:,1]-np.std(C,axis=1)
-CF[:,2] = CF[:,1]+np.std(C,axis=1)
+CF[:,0] = CF[:,1]-1.98*np.std(C,axis=1)
+CF[:,2] = CF[:,1]+1.98*np.std(C,axis=1)
 DF[:,1] = np.mean(D,axis=1)
-DF[:,0] = DF[:,1]-np.std(D,axis=1)
-DF[:,2] = DF[:,1]+np.std(D,axis=1)
+DF[:,0] = DF[:,1]-1.98*np.std(D,axis=1)
+DF[:,2] = DF[:,1]+1.98*np.std(D,axis=1)
 EF[:,1] = np.mean(E,axis=1)
-EF[:,0] = EF[:,1]-np.std(E,axis=1)
-EF[:,2] = EF[:,1]+np.std(E,axis=1)
+EF[:,0] = EF[:,1]-1.98*np.std(E,axis=1)
+EF[:,2] = EF[:,1]+1.98*np.std(E,axis=1)
 FF[:,1] = np.mean(F,axis=1)
-FF[:,0] = FF[:,1]-np.std(F,axis=1)
-FF[:,2] = FF[:,1]+np.std(F,axis=1)
+FF[:,0] = FF[:,1]-1.98*np.std(F,axis=1)
+FF[:,2] = FF[:,1]+1.98*np.std(F,axis=1)
 GF[:,1] = np.mean(G,axis=1)
-GF[:,0] = GF[:,1]-np.std(G,axis=1)
-GF[:,2] = GF[:,1]+np.std(G,axis=1)
+GF[:,0] = GF[:,1]-1.98*np.std(G,axis=1)
+GF[:,2] = GF[:,1]+1.98*np.std(G,axis=1)
 HF[:,1] = np.mean(H,axis=1)
-HF[:,0] = HF[:,1]-np.std(H,axis=1)
-HF[:,2] = HF[:,1]+np.std(H,axis=1)
+HF[:,0] = HF[:,1]-1.98*np.std(H,axis=1)
+HF[:,2] = HF[:,1]+1.98*np.std(H,axis=1)
 IF[:,1] = np.mean(I,axis=1)
-IF[:,0] = IF[:,1]-np.std(I,axis=1)
-IF[:,2] = IF[:,1]+np.std(I,axis=1)
+IF[:,0] = IF[:,1]-1.98*np.std(I,axis=1)
+IF[:,2] = IF[:,1]+1.98*np.std(I,axis=1)
 JF[:,1] = np.mean(J,axis=1)
-JF[:,0] = JF[:,1]-np.std(J,axis=1)
-JF[:,2] = JF[:,1]+np.std(J,axis=1)
+JF[:,0] = JF[:,1]-1.98*np.std(J,axis=1)
+JF[:,2] = JF[:,1]+1.98*np.std(J,axis=1)
 
+## Plotting the harmonic components
+maxval = zoom
+fig = plt.figure(figsize=[6.,6.])
+plt.clf()
+ax1 = fig.add_axes([0.025, 0.3, 0.45, 0.65])
+ax2 = fig.add_axes([0.525, 0.3, 0.45, 0.65])
+ax3 = fig.add_axes([0.025, 0.075, 0.45, 0.15])
+ax4 = fig.add_axes([0.525, 0.075, 0.45, 0.15])
+ax1.set_title('Anisotropy/Dip')
+#ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('')
+ax1.set_yticks(())
+ax1.set_xlim(xlimit[0], xlimit[1])
+ax1.set_ylim(-0.5, 4.75)
+ax2.set_title('Unmodelled')
+#ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('')
+ax2.set_yticks(())
+ax2.set_xlim(xlimit[0], xlimit[1])
+ax2.set_ylim(-0.5, 4.75)
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('')
+ax3.set_yticks(())
+ax3.set_xlim(xlimit[0], xlimit[1])
+ax3.set_ylim(-0.5, 1.75)
+ax4.set_xlabel('Time (s)')
+ax4.set_ylabel('')
+ax4.set_yticks(())
+ax4.set_xlim(xlimit[0], xlimit[1])
+ax4.set_ylim(-0.5, 1.75)
+i=4
+for f in [AF, BF, CF, DF, EF]:
+    data = f[0:npts,1] * maxval
+    datal = f[0:npts,0] * maxval
+    datau = f[0:npts,2] * maxval
+    ax1.plot(tt[0:npts],i+data,'k-',linewidth=0.5)
+    ax1.fill_between(tt[0:npts], i, i+datau, where=datau+1e-6 >= 0.,facecolor='cyan', linewidth=0)
+    ax1.fill_between(tt[0:npts], i, i+datal, where=datal+1e-6 <= 0.,facecolor='cyan', linewidth=0)
+    ax1.fill_between(tt[0:npts], i, i+datal, where=datal+1e-6 >= 0.,facecolor='red', linewidth=0)
+    ax1.fill_between(tt[0:npts], i, i+datau, where=datau+1e-6 <= 0.,facecolor='dodgerblue', linewidth=0)
+    i = i-1
+m=(np.abs(xlimit[1])/12.0)**0.9
+ax1.annotate('constant',xy=(xlimit[1]-3.4*m,4.12))
+ax1.annotate('cos($\phi$)',xy=(xlimit[1]-2.585*m,3.12))
+ax1.annotate('sin($\phi$)',xy=(xlimit[1]-2.5*m,2.12))
+ax1.annotate('cos(2$\phi$)',xy=(xlimit[1]-2.985*m,1.12))
+ax1.annotate('sin(2$\phi$)',xy=(xlimit[1]-2.85*m,0.12))
+ax1.annotate('(N-S)',xy=(xlimit[1]-2.25*m,2.75))
+ax1.annotate('(E-W)',xy=(xlimit[1]-2.3*m,1.75))
+ax1.annotate('(N-S)',xy=(xlimit[1]-2.25*m,0.75))
+ax1.annotate('(E-W)',xy=(xlimit[1]-2.3*m,-0.25))
+i=4
+for f in [FF, GF, HF, IF, JF]:
+    data = f[0:npts,1] * maxval
+    datal = f[0:npts,0] * maxval
+    datau = f[0:npts,2] * maxval
+    ax2.plot(tt[0:npts],i+data,'k-',linewidth=0.5)
+    ax2.fill_between(tt[0:npts], i, i+datau, where=datau+1e-6 >= 0.,facecolor='cyan', linewidth=0)
+    ax2.fill_between(tt[0:npts], i, i+datal, where=datal+1e-6 <= 0.,facecolor='cyan', linewidth=0)
+    ax2.fill_between(tt[0:npts], i, i+datal, where=datal+1e-6 >= 0.,facecolor='red', linewidth=0)
+    ax2.fill_between(tt[0:npts], i, i+datau, where=datau+1e-6 <= 0.,facecolor='dodgerblue', linewidth=0)
+    i = i-1
+ax2.text(xlimit[0]-1.45*m,3.925,'H0',fontsize=14)
+ax2.text(xlimit[0]-1.45*m,2.925,'H1',fontsize=14)
+ax2.text(xlimit[0]-1.45*m,1.925,'H2',fontsize=14)
+ax2.text(xlimit[0]-1.45*m,0.925,'H3',fontsize=14)
+ax2.text(xlimit[0]-1.45*m,-0.090,'H4',fontsize=14)
+ax2.annotate('constant',xy=(xlimit[1]-3.4*m,4.15))
+ax2.annotate('cos($\phi$)',xy=(xlimit[1]-2.585*m,3.12))
+ax2.annotate('sin($\phi$)',xy=(xlimit[1]-2.5*m,2.12))
+ax2.annotate('cos(2$\phi$)',xy=(xlimit[1]-2.985*m,1.12))
+ax2.annotate('sin(2$\phi$)',xy=(xlimit[1]-2.85*m,0.12))
+ax2.annotate('(N-S)',xy=(xlimit[1]-2.25*m,2.75))
+ax2.annotate('(E-W)',xy=(xlimit[1]-2.3*m,1.75))
+ax2.annotate('(N-S)',xy=(xlimit[1]-2.25*m,0.75))
+ax2.annotate('(E-W)',xy=(xlimit[1]-2.3*m,-0.25))
 
-fig = plt.figure(figsize=(8.3,11.7),frameon=False)
-xlimit=[-2,15]
-fig.subplots_adjust(hspace=0.5)
-plt.subplot(5,2,1)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('Constanat (K=0)')
-plt.plot(tt[0:npts],AF[0:npts])
-plt.subplot(5,2,3)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('cos (K=1)')
-plt.plot(tt[0:npts],BF[0:npts])
-plt.subplot(5,2,5)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('sin (K=1)')
-plt.plot(tt[0:npts],CF[0:npts])
-plt.subplot(5,2,7)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('cos (K=2)')
-plt.plot(tt[0:npts],DF[0:npts])
-plt.subplot(5,2,9)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('sin (K=2)')
-plt.plot(tt[0:npts],EF[0:npts])
+data = np.sqrt((BF[0:npts,1])**2+ (CF[0:npts,1])**2) * maxval
+ax3.fill_between(tt[0:npts], 1, 1+data, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+ax3.plot(tt[0:npts], 1+data,'k-',linewidth=0.5)
+data = np.sqrt((DF[0:npts,1])**2+ (EF[0:npts,1])**2) * maxval
+ax3.fill_between(tt[0:npts], 0, data, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+ax3.plot(tt[0:npts], data,'k-',linewidth=0.5)
+ax3.annotate('$\sqrt{H1^{2}+H2^{2}}$',xy=(xlimit[1]-4.5*m,1.15))
+ax3.annotate('$\sqrt{H3^{2}+H4^{2}}$',xy=(xlimit[1]-4.5*m,0.15))
+data = np.sqrt((GF[0:npts,1])**2+ (HF[0:npts,1])**2) * maxval
+ax4.fill_between(tt[0:npts], 1, 1+data, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+ax4.plot(tt[0:npts], 1+data,'k-',linewidth=0.5)
+data = np.sqrt((IF[0:npts,1])**2+ (JF[0:npts,1])**2) * maxval
+ax4.fill_between(tt[0:npts], 0, data, where=data+1e-6 >= 0.,facecolor='red', linewidth=0)
+ax4.plot(tt[0:npts], data,'k-',linewidth=0.5)
+ax4.annotate('$\sqrt{H1^{2}+H2^{2}}$',xy=(xlimit[1]-4.5*m,1.15))
+ax4.annotate('$\sqrt{H3^{2}+H4^{2}}$',xy=(xlimit[1]-4.5*m,0.15))
+fig.savefig('aniso-dip.pdf',dpi=300)
 
-# Unmodelled
-
-plt.subplot(5,2,2)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('Constanat (K=0)')
-plt.plot(tt[0:npts],FF[0:npts])
-plt.subplot(5,2,4)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('cos (K=1)')
-plt.plot(tt[0:npts],GF[0:npts])
-plt.subplot(5,2,6)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('sin (K=1)')
-plt.plot(tt[0:npts],HF[0:npts])
-plt.subplot(5,2,8)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('cos (K=2)')
-plt.plot(tt[0:npts],IF[0:npts])
-plt.subplot(5,2,10)
-plt.ylim([-maxamp,maxamp])
-plt.xlim(xlimit)
-plt.title('sin (K=2)')
-plt.plot(tt[0:npts],JF[0:npts])
 ###
-fp=open('modeled.dat','w')
+fp=open('modelled.dat','w')
+fp1=open('unmodelled.dat','w')
 for i in range(0,npts):
-    out=str(tt[i])+'\t'+str(AF[i,1])+'\t'+str(BF[i,1])+'\t'+str(CF[i,1])+'\t'+str(DF[i,1])+'\t'+str(EF[i,1])+'\n'
+    out = "{0:0.3F} {1:0.4F} {2:0.4F} {3:0.4F} {4:0.4F} {5:0.4F} {6:0.4F} {7:0.4F} {8:0.4F} {9:0.4F} {10:0.4F} {11:0.4F} {12:0.4F} {13:0.4F} {14:0.4F} {15:0.4F}\n"\
+    .format(tt[i],AF[i,0],AF[i,1],AF[i,2],BF[i,0],BF[i,1],BF[i,2],CF[i,0],CF[i,1],CF[i,2],DF[i,0]\
+    ,DF[i,1],DF[i,2],EF[i,0],EF[i,1],EF[i,2])
     fp.write(out)
+    out1 = "{0:0.3F} {1:0.4F} {2:0.4F} {3:0.4F} {4:0.4F} {5:0.4F} {6:0.4F} {7:0.4F} {8:0.4F} {9:0.4F} {10:0.4F} {11:0.4F} {12:0.4F} {13:0.4F} {14:0.4F} {15:0.4F}\n"\
+    .format(tt[i],FF[i,0],FF[i,1],FF[i,2],GF[i,0],GF[i,1],GF[i,2],HF[i,0],HF[i,1],HF[i,2],IF[i,0]\
+    ,IF[i,1],IF[i,2],JF[i,0],JF[i,1],JF[i,2])
+    fp1.write(out1)
 fp.close()
-fp=open('unmodeled.dat','w')
-for i in range(0,npts):
-    out=str(tt[i])+'\t'+str(FF[i,1])+'\t'+str(GF[i,1])+'\t'+str(HF[i,1])+'\t'+str(IF[i,1])+'\t'+str(JF[i,1])+'\n'
-    fp.write(out)
-fp.close()
-### Analysis
-t1=0.0
-t2=4.0
-n1=int(np.ceil((np.abs(trinfo[0,0])+t1)/trinfo[0,1]))
-n2=int(np.ceil((np.abs(trinfo[0,0])+t2)/trinfo[0,1]))
-print (n1,n2)
-eta=np.arctan2(np.max(np.abs(BF[n1:n2,1])),np.max(np.abs(CF[n1:n2,1])))*180.0/np.pi
-print('Strike :',eta)
-eta=np.arctan2(np.max(np.abs(DF[n1:n2,1])),np.max(np.abs(EF[n1:n2,1])))*180.0/np.pi
-print('Strike :',eta)
-plt.savefig('plot.pdf')
-plt.show()
+fp1.close()
+
+#plt.show()
